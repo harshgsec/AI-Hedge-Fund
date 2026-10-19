@@ -93,6 +93,9 @@ class _DeltaBase(BrokerAdapter):
         }
 
     def fetch_market_data(self, symbol: str) -> dict:
+        if "_" in symbol or symbol.endswith("INR"):
+            print(f"[SKIP] {symbol} is spot — futures/options only")
+            return {"symbol": symbol, "bid": 0, "ask": 0, "spread": 0, "equity": 0, "h1_data": {}, "daily_data": {}}
         bid = ask = 0.0
         try:
             r = requests.get(f"{self.BASE}/v2/tickers/{symbol}", timeout=10)
