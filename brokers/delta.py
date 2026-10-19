@@ -145,15 +145,24 @@ class _DeltaBase(BrokerAdapter):
 
     def execute_trade(self, symbol: str, signal: str, stop_loss: float, take_profit: float, risk_percent: float) -> dict:
         side = "buy" if signal == "BUY" else "sell"
-        body = {"product_symbol": symbol, "size": 1, "side": side, "order_type": "market_order"}
+        equity = self.get_account_equity() or 1000
+        atr = 100
+        try:
+            m = self.fetch_market_data(symbol)
+            atr = m.get("h1_data", {}).get("atr") or 100
+        except Exception:
+            atr = 100
+        risk_amount = equity * (risk_percent / 100.0)
+        size = max(1, int(risk_amount / max(atr, 1)))
+        body = {"product_symbol": symbol, "size": size, "side": side, "order_type": "market_order"}
         body_str = json.dumps(body)
         headers = self._sign("POST", "/v2/orders", "", body_str)
         try:
             r = requests.post(f"{self.BASE}/v2/orders", headers=headers, data=body_str, timeout=10)
             resp = r.json()
             oid = resp.get("result", {}).get("id")
-            print(f"[TRADE] {self.__class__.__name__} {signal} {symbol} id={oid}")
-            return {"order": oid, "price": 0, "volume": 1, "sl": stop_loss, "tp": take_profit, "deal": oid}
+            print(f"[TRADE] {self.__class__.__name__} {signal} {symbol} size={size} id={oid}")
+            return {"order": oid, "price": 0, "volume": size, "sl": stop_loss, "tp": take_profit, "deal": oid}
         except Exception as e:
             raise RuntimeError(f"Delta order failed: {e}")
 
