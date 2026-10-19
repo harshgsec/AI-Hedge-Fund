@@ -15,9 +15,10 @@ body { font-family:Inter,system-ui,sans-serif; background:var(--bg); color:var(-
 .controls select, .controls input { background:var(--card); color:var(--text); border:1px solid var(--border); border-radius:6px; padding:0.4rem 0.6rem; }
 .btn { background:var(--blue); color:white; border:none; border-radius:6px; padding:0.5rem 1rem; cursor:pointer; font-weight:600; }
 .btn.stop { background:#475569; }
-.grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:1rem; padding:1.5rem; }
+.grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:1rem; padding:1.5rem; }
 .card { background:var(--card); border:1px solid var(--border); border-radius:10px; padding:1.2rem; }
-.metric { font-size:1.8rem; font-weight:700; }
+.card h3 { font-size:0.75rem; color:var(--muted); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:0.4rem; }
+.metric { font-size:1.6rem; font-weight:700; }
 .signal { font-size:2.5rem; font-weight:800; text-align:center; padding:1rem; border-radius:10px; }
 .signal.BUY { background:#14532d; color:#86efac; }
 .signal.SELL { background:#7f1d1d; color:#fca5a5; }
@@ -31,13 +32,19 @@ th,td { padding:0.5rem; text-align:left; border-bottom:1px solid var(--border); 
 <div class="topbar">
   <div class="brand">AI Hedge Fund Terminal</div>
   <div class="controls">
-    <select id="broker"><option value="kite">Kite</option><option value="fyers">FYERS</option><option value="delta">Delta</option></select>
-    <input id="interval" type="number" value="30" min="10">
-    <input id="risk" type="number" value="1.0" step="0.1" min="0.1" max="5">
+    <select id="broker">
+      <option value="kite">Kite</option>
+      <option value="fyers">FYERS</option>
+      <option value="delta">Delta Live</option>
+      <option value="delta_demo">Delta Demo</option>
+    </select>
+    <select id="interval"><option value="30">30s</option><option value="60">1m</option><option value="300">5m</option></select>
+    <input id="risk" type="number" value="1.0" step="0.1" min="0.1" max="5" style="width:70px">
     <button class="btn" id="toggle">Start</button>
   </div>
 </div>
 <div class="grid">
+  <div class="card"><h3>Broker</h3><div class="metric" id="brokerName" style="font-size:1.1rem">—</div></div>
   <div class="card"><h3>Equity</h3><div class="metric" id="equity">—</div></div>
   <div class="card"><h3>Confidence</h3><div class="metric" id="confidence">0</div></div>
   <div class="card"><h3>Fills</h3><div class="metric" id="fills">0</div></div>
@@ -52,6 +59,7 @@ async function refresh() {
   try {
     const r = await fetch('/api/status');
     const s = await r.json();
+    $('brokerName').textContent = (s.broker || '—').replace('_',' ').toUpperCase();
     $('equity').textContent = s.equity ? s.equity.toFixed(2) : '—';
     $('confidence').textContent = s.last_confidence || 0;
     $('fills').textContent = (s.trade_history || []).length;
@@ -63,6 +71,7 @@ async function refresh() {
     pt.innerHTML = (s.open_positions || []).map(p => `<tr><td>${p.symbol}</td><td>${p.type}</td><td>${p.volume}</td><td>${p.profit}</td></tr>`).join('');
     const ht = $('history').querySelector('tbody');
     ht.innerHTML = (s.trade_history || []).slice(-20).reverse().map(h => `<tr><td>${h.time}</td><td>${h.symbol}</td><td>${h.signal}</td><td>${h.fill}</td><td>${h.status}</td></tr>`).join('');
+    if (s.broker) $('broker').value = s.broker;
   } catch(e) {}
 }
 $('toggle').onclick = async () => {
