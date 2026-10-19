@@ -1,0 +1,11 @@
+fastapi
+uvicorn[standard]
+pydantic
+jinja2
+python-dotenv
+pandas
+pandas_ta
+requests
+kiteconnect
+fyers-apiv3
+dhanhq
