@@ -1,9 +1,13 @@
-"""DeepSeek AI decision engine with learned-rule injection."""
+"""DeepSeek / OpenRouter AI decision engine with learned-rule injection."""
 import json
-import re
 import requests
 import config
 from auditor import load_rules_document
+
+def _llm_endpoint_and_key():
+    if config.OPENROUTER_API_KEY:
+        return config.OPENROUTER_BASE, config.OPENROUTER_API_KEY, config.LLM_MODEL
+    return config.DEEPSEEK_API_BASE, config.DEEPSEEK_API_KEY, config.DEEPSEEK_MODEL
 
 def load_learned_rules(symbol: str) -> list:
     doc = load_rules_document()
@@ -34,11 +38,6 @@ Return ONLY valid JSON:
   "take_profit": float,
   "logic": "concise explanation including indicators and any learned-rule deductions"
 }}
-
-Geometric rules:
-- BUY: stop_loss < price < take_profit
-- SELL: take_profit < price < stop_loss
-If you cannot produce valid geometry, still return the JSON; the system will correct it.
 """
 
     user = f"""Symbol: {symbol}
@@ -48,11 +47,12 @@ H1: EMA={h1.get('ema')} RSI={h1.get('rsi')} ATR={h1.get('atr')} RelVol={h1.get('
 Daily: EMA={d1.get('ema')} RSI={d1.get('rsi')} ATR={d1.get('atr')} RelVol={d1.get('rel_volume')} Trend={d1.get('trend')}
 """
 
+    base, key, model = _llm_endpoint_and_key()
     resp = requests.post(
-        f"{config.DEEPSEEK_API_BASE}/chat/completions",
-        headers={"Authorization": f"Bearer {config.DEEPSEEK_API_KEY}", "Content-Type": "application/json"},
+        f"{base}/chat/completions",
+        headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
         json={
-            "model": config.DEEPSEEK_MODEL,
+            "model": model,
             "messages": [
                 {"role": "system", "content": system},
                 {"role": "user", "content": user},
