@@ -53,11 +53,13 @@ class _DeltaBase(BrokerAdapter):
             pass
         return 0.0
 
-    def _candles(self, symbol: str, resolution: str, limit: int = 200) -> pd.DataFrame:
+    def _candles(self, symbol: str, resolution: str, days: int = 30) -> pd.DataFrame:
         try:
+            end = int(time.time())
+            start = end - days * 86400
             r = requests.get(
                 f"{self.BASE}/v2/history/candles",
-                params={"symbol": symbol, "resolution": resolution, "limit": limit},
+                params={"symbol": symbol, "resolution": resolution, "start": start, "end": end},
                 timeout=15,
             )
             data = r.json().get("result", [])
@@ -96,12 +98,12 @@ class _DeltaBase(BrokerAdapter):
             r = requests.get(f"{self.BASE}/v2/tickers/{symbol}", timeout=10)
             data = r.json().get("result", {})
             quotes = data.get("quotes", {})
-            bid = float(quotes.get("best_bid") or data.get("mark_price") or 0)
-            ask = float(quotes.get("best_ask") or data.get("mark_price") or 0)
+            bid = float(quotes.get("best_bid") or data.get("mark_price") or data.get("close") or 0)
+            ask = float(quotes.get("best_ask") or data.get("mark_price") or data.get("close") or 0)
         except Exception as e:
             print(f"[SYSTEM] Ticker failed for {symbol}: {e}")
 
-        h1 = self._indicators(self._candles(symbol, "60m", 200))
+        h1 = self._indicators(self._candles(symbol, "1h", 14))
         d1 = self._indicators(self._candles(symbol, "1d", 250))
 
         return {
