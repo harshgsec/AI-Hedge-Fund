@@ -105,6 +105,7 @@ class _DeltaBase(BrokerAdapter):
 
         h1 = self._indicators(self._candles(symbol, "1h", 14))
         d1 = self._indicators(self._candles(symbol, "1d", 250))
+        print(f"[DATA] {symbol} bid={bid} ask={ask} h1={bool(h1)} d1={bool(d1)}")
 
         return {
             "symbol": symbol,
