@@ -1,20 +1,25 @@
-"""Delta Exchange India adapter — full implementation."""
+"""Delta Exchange India adapter — live and demo."""
 import hmac
 import hashlib
 import time
 import json
 import requests
-import pandas as pd
-import pandas_ta as ta
 import config
 from .base import BrokerAdapter
 
 class DeltaAdapter(BrokerAdapter):
-    BASE = "https://api.india.delta.exchange"
+    LIVE_BASE = "https://api.india.delta.exchange"
+    DEMO_BASE = "https://cdn-ind.testnet.deltaex.org"
 
-    def __init__(self):
-        self.api_key = config.DELTA_API_KEY
-        self.api_secret = config.DELTA_API_SECRET
+    def __init__(self, demo: bool = False):
+        self.demo = demo
+        self.BASE = self.DEMO_BASE if demo else self.LIVE_BASE
+        if demo:
+            self.api_key = config.DELTA_DEMO_API_KEY
+            self.api_secret = config.DELTA_DEMO_API_SECRET
+        else:
+            self.api_key = config.DELTA_API_KEY
+            self.api_secret = config.DELTA_API_SECRET
 
     def _sign(self, method: str, path: str, query: str = "", body: str = "") -> dict:
         ts = str(int(time.time()))
@@ -36,7 +41,8 @@ class DeltaAdapter(BrokerAdapter):
             headers = self._sign("GET", "/v2/wallet/balances")
             r = requests.get(f"{self.BASE}/v2/wallet/balances", headers=headers, timeout=10)
             r.raise_for_status()
-            print("[SYSTEM] Delta Exchange connected")
+            mode = "demo" if self.demo else "live"
+            print(f"[SYSTEM] Delta Exchange ({mode}) connected")
             return True
         except Exception as e:
             print(f"[SYSTEM] Delta init failed: {e}")
@@ -47,7 +53,7 @@ class DeltaAdapter(BrokerAdapter):
             headers = self._sign("GET", "/v2/wallet/balances")
             r = requests.get(f"{self.BASE}/v2/wallet/balances", headers=headers, timeout=10)
             for b in r.json().get("result", []):
-                if b.get("asset_symbol") == "INR":
+                if b.get("asset_symbol") in ("INR", "USDT", "USD"):
                     return float(b.get("balance", 0))
         except Exception:
             pass
@@ -80,7 +86,15 @@ class DeltaAdapter(BrokerAdapter):
             return []
 
     def fetch_market_data(self, symbol: str) -> dict:
-        return {"symbol": symbol, "bid": 0, "ask": 0, "spread": 0, "equity": self.get_account_equity(), "h1_data": {}, "daily_data": {}}
+        return {
+            "symbol": symbol,
+            "bid": 0,
+            "ask": 0,
+            "spread": 0,
+            "equity": self.get_account_equity(),
+            "h1_data": {},
+            "daily_data": {},
+        }
 
     def execute_trade(self, symbol: str, signal: str, stop_loss: float, take_profit: float, risk_percent: float) -> dict:
         side = "buy" if signal == "BUY" else "sell"
