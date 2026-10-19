@@ -84,8 +84,36 @@ Daily: EMA={d1.get('ema')} RSI={d1.get('rsi')} ATR={d1.get('atr')} Trend={d1.get
         timeout=45,
     )
     resp.raise_for_status()
-    content = resp.json()["choices"][0]["message"]["content"]
-    decision = _extract_json(content)
+    data = resp.json()
+    choice = data.get("choices", [{}])[0]
+    message = choice.get("message", {})
+    content = message.get("content") or message.get("reasoning") or ""
+    if not content:
+        print(f"[AI] Empty response from {model}: {str(data)[:300]}")
+        return {
+            "signal": "HOLD",
+            "confidence_score": 0,
+            "stop_loss": 0,
+            "take_profit": 0,
+            "logic": "Empty model response",
+        }
+    try:
+        decision = _extract_json(content)
+    except Exception as e:
+        print(f"[AI] JSON parse failed: {e} | raw={content[:200]}")
+        sig = "HOLD"
+        upper = content.upper()
+        if "BUY" in upper and "SELL" not in upper:
+            sig = "BUY"
+        elif "SELL" in upper and "BUY" not in upper:
+            sig = "SELL"
+        decision = {
+            "signal": sig,
+            "confidence_score": 50,
+            "stop_loss": 0,
+            "take_profit": 0,
+            "logic": content[:200],
+        }
 
     decision.setdefault("signal", "HOLD")
     decision.setdefault("confidence_score", 0)
