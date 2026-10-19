@@ -1,0 +1,9 @@
+.env
+*.pyc
+__pycache__/
+.venv/
+venv/
+memory.json
+new_rules.json
+server.log
+*.log
