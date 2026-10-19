@@ -1,4 +1,4 @@
-"""Delta Exchange India adapter — live and demo."""
+"""Delta Exchange India — live and demo adapters."""
 import hmac
 import hashlib
 import time
@@ -7,19 +7,12 @@ import requests
 import config
 from .base import BrokerAdapter
 
-class DeltaAdapter(BrokerAdapter):
-    LIVE_BASE = "https://api.india.delta.exchange"
-    DEMO_BASE = "https://cdn-ind.testnet.deltaex.org"
+class _DeltaBase(BrokerAdapter):
+    BASE = ""
 
-    def __init__(self, demo: bool = False):
-        self.demo = demo
-        self.BASE = self.DEMO_BASE if demo else self.LIVE_BASE
-        if demo:
-            self.api_key = config.DELTA_DEMO_API_KEY
-            self.api_secret = config.DELTA_DEMO_API_SECRET
-        else:
-            self.api_key = config.DELTA_API_KEY
-            self.api_secret = config.DELTA_API_SECRET
+    def __init__(self):
+        self.api_key = ""
+        self.api_secret = ""
 
     def _sign(self, method: str, path: str, query: str = "", body: str = "") -> dict:
         ts = str(int(time.time()))
@@ -35,17 +28,16 @@ class DeltaAdapter(BrokerAdapter):
 
     def initialize(self) -> bool:
         if not self.api_key or not self.api_secret:
-            print("[SYSTEM] Delta credentials missing")
+            print(f"[SYSTEM] {self.__class__.__name__} credentials missing")
             return False
         try:
             headers = self._sign("GET", "/v2/wallet/balances")
             r = requests.get(f"{self.BASE}/v2/wallet/balances", headers=headers, timeout=10)
             r.raise_for_status()
-            mode = "demo" if self.demo else "live"
-            print(f"[SYSTEM] Delta Exchange ({mode}) connected")
+            print(f"[SYSTEM] {self.__class__.__name__} connected")
             return True
         except Exception as e:
-            print(f"[SYSTEM] Delta init failed: {e}")
+            print(f"[SYSTEM] {self.__class__.__name__} init failed: {e}")
             return False
 
     def get_account_equity(self) -> float:
@@ -111,3 +103,19 @@ class DeltaAdapter(BrokerAdapter):
 
     def close_position(self, ticket) -> dict:
         return {"success": False, "error": "Use opposite market order"}
+
+class DeltaLiveAdapter(_DeltaBase):
+    """Live Delta Exchange India."""
+    BASE = "https://api.india.delta.exchange"
+
+    def __init__(self):
+        self.api_key = config.DELTA_API_KEY
+        self.api_secret = config.DELTA_API_SECRET
+
+class DeltaDemoAdapter(_DeltaBase):
+    """Delta Exchange India testnet / demo."""
+    BASE = "https://cdn-ind.testnet.deltaex.org"
+
+    def __init__(self):
+        self.api_key = config.DELTA_DEMO_API_KEY
+        self.api_secret = config.DELTA_DEMO_API_SECRET

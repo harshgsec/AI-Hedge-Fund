@@ -12,9 +12,9 @@ def get_broker(name: str):
         from .dhan import DhanAdapter
         return DhanAdapter()
     if name == "delta":
-        from .delta import DeltaAdapter
-        return DeltaAdapter(demo=False)
+        from .delta import DeltaLiveAdapter
+        return DeltaLiveAdapter()
     if name == "delta_demo":
-        from .delta import DeltaAdapter
-        return DeltaAdapter(demo=True)
+        from .delta import DeltaDemoAdapter
+        return DeltaDemoAdapter()
     raise ValueError(f"Unknown broker: {name}")
