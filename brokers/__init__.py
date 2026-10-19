@@ -13,5 +13,8 @@ def get_broker(name: str):
         return DhanAdapter()
     if name == "delta":
         from .delta import DeltaAdapter
-        return DeltaAdapter()
+        return DeltaAdapter(demo=False)
+    if name == "delta_demo":
+        from .delta import DeltaAdapter
+        return DeltaAdapter(demo=True)
     raise ValueError(f"Unknown broker: {name}")
