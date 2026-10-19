@@ -6,6 +6,11 @@ import requests
 import config
 from memory_store import load_trade_memory, reconcile_closed_trades
 
+def _llm_endpoint_and_key():
+    if config.OPENROUTER_API_KEY:
+        return config.OPENROUTER_BASE, config.OPENROUTER_API_KEY, config.LLM_MODEL
+    return config.DEEPSEEK_API_BASE, config.DEEPSEEK_API_KEY, config.DEEPSEEK_MODEL
+
 def load_rules_document() -> dict:
     if not os.path.exists(config.RULES_FILE):
         return {"rules": [], "last_audit_at": None, "trades_analyzed": 0}
@@ -48,10 +53,7 @@ def run_audit(force: bool = False) -> dict:
 
     prompt = f"""You are the Chief Risk Officer and Quantitative Auditor of an institutional hedge fund.
 
-Analyze the following recent losing trades and identify recurring loss patterns such as:
-- low-volume breakdowns or breakouts
-- overextended ATR / volatility traps
-- adverse cross-asset correlations
+Analyze the following recent losing trades and identify recurring loss patterns.
 
 Recent losses:
 {loss_text}
@@ -61,11 +63,12 @@ affected_symbol (string or \"ALL\"), setup (string), confidence_reduction_points
 """
 
     try:
+        base, key, model = _llm_endpoint_and_key()
         resp = requests.post(
-            f"{config.DEEPSEEK_API_BASE}/chat/completions",
-            headers={"Authorization": f"Bearer {config.DEEPSEEK_API_KEY}", "Content-Type": "application/json"},
+            f"{base}/chat/completions",
+            headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
             json={
-                "model": config.DEEPSEEK_MODEL,
+                "model": model,
                 "messages": [{"role": "user", "content": prompt}],
                 "temperature": 0.1,
                 "max_tokens": 800,
