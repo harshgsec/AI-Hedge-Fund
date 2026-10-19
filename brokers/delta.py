@@ -121,26 +121,33 @@ class _DeltaBase(BrokerAdapter):
         try:
             headers = self._sign("GET", "/v2/positions")
             r = requests.get(f"{self.BASE}/v2/positions", headers=headers, timeout=10)
-            positions = r.json().get("result", [])
+            data = r.json()
+            positions = data.get("result", [])
+            if not isinstance(positions, list):
+                print(f"[POS] unexpected format: {str(data)[:200]}")
+                return []
             out = []
             for p in positions:
-                if symbol and p.get("product_symbol") != symbol:
+                sym = p.get("product_symbol") or p.get("symbol")
+                if symbol and sym != symbol:
                     continue
-                size = float(p.get("size", 0))
+                size = float(p.get("size", 0) or 0)
                 if size == 0:
                     continue
                 out.append({
-                    "ticket": p.get("product_symbol"),
-                    "symbol": p.get("product_symbol"),
+                    "ticket": sym,
+                    "symbol": sym,
                     "type": "BUY" if size > 0 else "SELL",
                     "volume": abs(size),
-                    "price_open": float(p.get("entry_price", 0)),
+                    "price_open": float(p.get("entry_price") or 0),
                     "sl": 0,
                     "tp": 0,
-                    "profit": float(p.get("unrealized_pnl", 0)),
+                    "profit": float(p.get("unrealized_pnl") or 0),
                 })
+            print(f"[POS] {len(out)} open")
             return out
-        except Exception:
+        except Exception as e:
+            print(f"[POS] error: {e}")
             return []
 
     def execute_trade(self, symbol: str, signal: str, stop_loss: float, take_profit: float, risk_percent: float) -> dict:
@@ -158,11 +165,15 @@ class _DeltaBase(BrokerAdapter):
         body_str = json.dumps(body)
         headers = self._sign("POST", "/v2/orders", "", body_str)
         try:
-            r = requests.post(f"{self.BASE}/v2/orders", headers=headers, data=body_str, timeout=10)
+            r = requests.post(f"{self.BASE}/v2/orders", headers=headers, data=body_str, timeout=15)
             resp = r.json()
-            oid = resp.get("result", {}).get("id")
-            print(f"[TRADE] {self.__class__.__name__} {signal} {symbol} size={size} id={oid}")
-            return {"order": oid, "price": 0, "volume": size, "sl": stop_loss, "tp": take_profit, "deal": oid}
+            print(f"[ORDER] {symbol} {side} size={size} status={r.status_code} resp={str(resp)[:300]}")
+            if not resp.get("success"):
+                raise RuntimeError(resp.get("error", resp))
+            result = resp.get("result", {})
+            oid = result.get("id")
+            fill_price = float(result.get("average_fill_price") or result.get("limit_price") or 0)
+            return {"order": oid, "price": fill_price, "volume": size, "sl": stop_loss, "tp": take_profit, "deal": oid}
         except Exception as e:
             raise RuntimeError(f"Delta order failed: {e}")
 
