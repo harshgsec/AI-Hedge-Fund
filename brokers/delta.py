@@ -153,6 +153,30 @@ class _DeltaBase(BrokerAdapter):
             print(f"[POS] error: {e}")
             return []
 
+    def get_fills(self, limit: int = 20) -> list:
+        try:
+            path = "/v2/fills"
+            query = f"?page_size={min(limit, 50)}"
+            headers = self._sign("GET", path, query)
+            r = requests.get(f"{self.BASE}{path}{query}", headers=headers, timeout=10)
+            data = r.json()
+            fills = data.get("result", [])
+            out = []
+            for f in fills if isinstance(fills, list) else []:
+                out.append({
+                    "time": f.get("created_at") or f.get("time"),
+                    "symbol": f.get("product_symbol") or f.get("symbol"),
+                    "signal": "BUY" if f.get("side") == "buy" else "SELL",
+                    "fill": float(f.get("price") or 0),
+                    "volume": abs(float(f.get("size") or 0)),
+                    "deal": f.get("id"),
+                    "status": "FILLED",
+                })
+            return out
+        except Exception as e:
+            print(f"[FILLS] error: {e}")
+            return []
+
     def execute_trade(self, symbol: str, signal: str, stop_loss: float, take_profit: float, risk_percent: float) -> dict:
         side = "buy" if signal == "BUY" else "sell"
         equity = self.get_account_equity() or 1000
@@ -163,7 +187,7 @@ class _DeltaBase(BrokerAdapter):
         except Exception:
             atr = 100
         risk_amount = equity * (risk_percent / 100.0)
-        size = max(1, int(risk_amount / max(atr, 1)))
+        size = max(1, min(5, int(risk_amount / max(atr, 1))))
         body = {"product_symbol": symbol, "size": size, "side": side, "order_type": "market_order"}
         body_str = json.dumps(body)
         headers = self._sign("POST", "/v2/orders", "", body_str)
