@@ -4,12 +4,13 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from typing import Any
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
 from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 
 from brokers import get_broker
+from ai_brain import get_ai_decision
 import config
 
 broker = None
@@ -21,6 +22,7 @@ def get_active_broker():
         if not broker.initialize():
             raise RuntimeError(f"Failed to initialize broker: {config.ACTIVE_BROKER}")
     return broker
+
 from memory_store import append_trade_memory, reconcile_closed_trades, load_trade_memory
 from auditor import run_audit, load_rules_document
 
