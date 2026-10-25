@@ -28,10 +28,27 @@ def load_trade_memory() -> list:
     return _load_memory()
 
 def reconcile_closed_trades() -> int:
-    """
-    Broker-agnostic stub.
-    Full reconciliation requires broker-specific trade history.
-    For now, mark nothing and return 0.
-    Extend per broker when trade history endpoints are wired.
-    """
-    return 0
+    """Pull recent fills from the active broker and mark closed trades."""
+    try:
+        from brokers import get_broker
+        b = get_broker(config.ACTIVE_BROKER)
+        fills = getattr(b, "get_fills", lambda: [])()
+        if not fills:
+            return 0
+        memory = _load_memory()
+        known = {str(m.get("deal")) for m in memory}
+        added = 0
+        for f in fills:
+            did = str(f.get("deal"))
+            if did and did not in known:
+                f["recorded_at"] = datetime.now(timezone.utc).isoformat()
+                f["status"] = "FILLED"
+                memory.append(f)
+                added += 1
+        if added:
+            _save_memory(memory)
+            print(f"[RECONCILE] {added} new fills")
+        return added
+    except Exception as e:
+        print(f"[RECONCILE] error: {e}")
+        return 0
